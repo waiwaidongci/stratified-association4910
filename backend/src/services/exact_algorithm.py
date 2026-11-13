@@ -1,6 +1,7 @@
 """Fixed-margin hypergeometric convolution, with declared mean-distance two-sided tail."""
 import numpy as np
 from scipy.stats import hypergeom
+from .errors import TaskError
 
 def conditional_distribution(rows):
  prob=np.array([1],dtype=np.longdouble);offset=0;layers=[]
@@ -8,9 +9,9 @@ def conditional_distribution(rows):
   n=t['n'];r=t['row_a'];c=t['success_total'];lo=max(0,r-(n-c));hi=min(r,c)
   support=np.arange(lo,hi+1);logs=hypergeom.logpmf(support,n,c,r)
   pmf=np.exp(np.asarray(logs,dtype=np.longdouble));mass=pmf.sum()
-  if not mass>0 or not np.isfinite(mass):raise ValueError('超几何概率计算失败')
+  if not mass>0 or not np.isfinite(mass):raise TaskError('超几何概率计算失败',permanent=True)
   pmf/=mass
-  if len(prob)+len(pmf)-1>1201:raise ValueError('卷积支持域超过1201个点的资源限额')
+  if len(prob)+len(pmf)-1>1201:raise TaskError('卷积支持域超过1201个点的资源限额',permanent=True)
   prob=np.convolve(prob,pmf);offset+=lo;layers.append({'code':t['code'],'lower':lo,'upper':hi,'support_count':len(support)})
  mass=prob.sum();prob/=mass;support=np.arange(offset,offset+len(prob));return support,prob,layers
 

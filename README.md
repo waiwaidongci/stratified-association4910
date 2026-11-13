@@ -75,6 +75,17 @@ Python3.11/FastAPI0.115.6/SQLAlchemy2.0.36/PyMySQL1.1.1、NumPy2.1.3/SciPy1.14.1
 
 ## 范围与交付
 
-共同OR是加权汇总，本项目没有Breslow–Day同质性检验；层差异大时不能把它当普遍相同效果。层内观察独立、边际固定的条件零假设需由试验设计支持；未随机化不作因果解释，未拒绝不证明等效。只有本机单worker研究队列，未验证崩溃重投、多worker竞态或生产压力；初始化采用create_all，不含生产升级链。不是检测仪采集或任意文件自动导入，来源字段仅保留追溯元数据。Google字体有本地serif回退。
+共同OR是加权汇总，本项目没有Breslow–Day同质性检验；层差异大时不能把它当普遍相同效果。层内观察独立、边际固定的条件零假设需由试验设计支持；未随机化不作因果解释，未拒绝不证明等效。初始化采用create_all并对`association_runs`做幂等补列，不含生产升级链。不是检测仪采集或任意文件自动导入，来源字段仅保留追溯元数据。Google字体有本地serif回退。
+
+## 中断恢复与并发语义
+
+冻结后的任务按首次快照的计数与`alpha`计算，续跑不改变输入与阈值。每个run带`attempts/max_attempts`（页面“恢复次数”=attempts−1）、租约归属/到期时刻与单调递增的`fencing_token`：
+
+- **自动续跑**：worker启动与每15秒周期执行`recover()`，把租约过期的`running`任务（进程崩溃/被杀死）置回`queued`，并补投Redis中丢失的等待消息；API启动时同样恢复。瞬时故障在`max_attempts=3`内自动重投，仍读同一份冻结快照。
+- **投递幂等**：`enqueue`用Redis待处理集合与租约锁去重，同一run在队列中只保留一条消息；已`completed/failed`的重复消息在`compute`入口直接跳过，不重复生成结果或`worker.completed`记录。
+- **租约与栅栏**：多进程并发时，Redis `set NX`租约保证同一时刻只有一个进程有处理资格，后台线程每10秒续租并同步数据库到期时刻；所有状态写回都带`WHERE fencing_token=:token`条件，失去资格的旧进程结果被丢弃，不能覆盖新进程的结果。
+- **明确失败**：无有效条件方差、超卷积资源限额、快照/阈值非法等确定性错误抛`TaskError(permanent=True)`，立即`failed`且不再重投；瞬时故障用尽次数后也`failed`。最终原因写入`error`，在配置页队列与结果页展示。已完成研究与已批准说明沿用原结果，重投不重算。
+
+审计动作新增`run.requeued/run.recovered/run.failed`。验证脚本（纯标准库假件，覆盖幂等投递、并发claim、栅栏写、重试上限、确定性失败、崩溃接管与完成记录唯一性）位于独立`verify/`目录，用`python3 -I verify/recovery_behavior_test.py`运行。
 
 源码不含截图、测试日志或.env。真实验证脚本/TESTING/PNG/CSV/JSON在同批独立`test-artifacts/gb-0035/`，作为验收证据单独交付。License：MIT，见LICENSE。

@@ -1,9 +1,10 @@
 import hashlib,json,math
 from .cmh_algorithm import calculate_cmh
 from .exact_algorithm import exact_test
+from .errors import TaskError
 
 def analyze(snapshot,alpha):
- if isinstance(alpha,bool) or not isinstance(alpha,(int,float)) or not math.isfinite(alpha) or not .001<=alpha<=.1:raise ValueError('alpha须在.001..0.1之间')
+ if isinstance(alpha,bool) or not isinstance(alpha,(int,float)) or not math.isfinite(alpha) or not .001<=alpha<=.1:raise TaskError('alpha须在.001..0.1之间',permanent=True)
  tables=sorted(snapshot['tables'],key=lambda t:t['code']);cmh=calculate_cmh(tables);exact=exact_test(cmh['strata'],cmh['observed_sum_a'],alpha)
  canonical={'version':'cmh-mean-distance-exact-v1','snapshot':{**snapshot,'tables':tables},'alpha':alpha}
  fingerprint=hashlib.sha256(json.dumps(canonical,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()

@@ -4,8 +4,9 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from src.config.database import Base,engine
+from src.config.database import Base,engine,SessionLocal
 from src.config.queue import queue
+from src.config.schema import ensure_run_columns
 from src import models
 from src.routes import auth,studies,strata,counts,runs,notes,audits
 from src.middlewares.request_guard import RequestGuard
@@ -13,6 +14,12 @@ from src.middlewares.error_handler import ErrorHandler
 @asynccontextmanager
 async def lifespan(app):
     Base.metadata.create_all(engine)
+    ensure_run_columns()
+    # 进程重启后自动续跑：崩溃遗留的 running 任务与丢失的 queued 消息重新投递
+    try:
+        from src.services.run_service import recover
+        with SessionLocal() as db:recover(db)
+    except Exception:logging.exception('startup recovery failed')
     if os.getenv('SEED_DEMO','true').lower()=='true':
         try:
             from scripts.seed_demo import seed

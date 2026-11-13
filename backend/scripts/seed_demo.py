@@ -23,7 +23,7 @@ def seed():
   db.commit();user=db.scalar(select(User).where(User.role=='analyst'));study=db.scalar(select(AssociationStudy).where(AssociationStudy.code=='CN-REV'))
   run=db.scalar(select(AssociationRun).where(AssociationRun.name=='湿度构成 · 首轮分层核对'))
   if not run:
-   snap=snapshot(db,study.id);run=AssociationRun(name='湿度构成 · 首轮分层核对',study_id=study.id,alpha=.05,created_by=user.id,input_snapshot=snap,result=analyze(snap,.05),status='completed');db.add(run);db.flush()
+   snap=snapshot(db,study.id);run=AssociationRun(name='湿度构成 · 首轮分层核对',study_id=study.id,alpha=.05,created_by=user.id,input_snapshot=snap,result=analyze(snap,.05),status='completed',attempts=1,max_attempts=3,fencing_token=0);db.add(run);db.flush()
   if not db.scalar(select(VerificationNote).where(VerificationNote.title=='先分层，再讨论总体率')):db.add(VerificationNote(title='先分层，再讨论总体率',run_id=run.id,interpretation='两层内A成功率均较高，但样本湿度构成不同导致总体率方向相反。共同OR是分层加权摘要，不是封装因果效果。',action='保留各湿度层独立重复试片，按预先方案核对封装和浸湿时间。',status='approved',approved_by='admin@cenan.demo',review_comment='统计层边际与精确双侧定义已核对，批准独立复验记录。',created_by=user.id))
   db.commit();print({t.__tablename__:db.scalar(select(func.count()).select_from(t)) for t in [User,AssociationStudy,ExposureStratum,TableCount,AssociationRun,VerificationNote]})
 if __name__=='__main__':seed()
